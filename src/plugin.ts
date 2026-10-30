@@ -1,10 +1,12 @@
 import type { PluginContext, SandboxedPlugin } from "emdash/plugin";
 
 const SESSION_URL = "https://api.fastmail.com/jmap/session";
+const MAIL_CAPABILITY = "urn:ietf:params:jmap:mail";
+const SUBMISSION_CAPABILITY = "urn:ietf:params:jmap:submission";
 const CAPABILITIES = [
   "urn:ietf:params:jmap:core",
-  "urn:ietf:params:jmap:mail",
-  "urn:ietf:params:jmap:submission",
+  MAIL_CAPABILITY,
+  SUBMISSION_CAPABILITY,
 ];
 
 interface Message {
@@ -130,9 +132,12 @@ const plugin: SandboxedPlugin = {
           fail("API token and From address must be set in plugin settings");
 
         const session = await jmapFetch<Session>(ctx, token, SESSION_URL);
-        const accountId =
-          session.primaryAccounts["urn:ietf:params:jmap:submission"];
-        if (!accountId) fail("API token is missing Email submission access");
+        const accountId = session.primaryAccounts[SUBMISSION_CAPABILITY];
+        if (
+          !accountId ||
+          session.primaryAccounts[MAIL_CAPABILITY] !== accountId
+        )
+          fail("API token needs both Email and Email submission access");
 
         const lookup = await call(ctx, token, session, [
           ["Identity/get", { accountId, ids: null }, "identities"],

@@ -25,7 +25,10 @@ const json = (body: unknown) => new Response(JSON.stringify(body));
 
 const session = {
   apiUrl: API_URL,
-  primaryAccounts: { "urn:ietf:params:jmap:submission": "A1" },
+  primaryAccounts: {
+    "urn:ietf:params:jmap:mail": "A1",
+    "urn:ietf:params:jmap:submission": "A1",
+  },
 };
 
 const lookup = (identities = [{ id: "I1", email: "team@example.com" }]) => ({
@@ -208,15 +211,26 @@ describe("email:deliver", () => {
     ).rejects.toThrow(new RegExp(`${SESSION_URL} returned HTTP 503$`));
   });
 
-  it("explains a token without submission access", async () => {
+  it.each([
+    ["no access", {}],
+    ["no submission access", { "urn:ietf:params:jmap:mail": "A1" }],
+    ["no mail access", { "urn:ietf:params:jmap:submission": "A1" }],
+    [
+      "different accounts",
+      {
+        "urn:ietf:params:jmap:mail": "A1",
+        "urn:ietf:params:jmap:submission": "A2",
+      },
+    ],
+  ])("explains a token with %s", async (_, primaryAccounts) => {
     const h = await setup();
     await h.http.respond(
       SESSION_URL,
-      json({ apiUrl: API_URL, primaryAccounts: {} }),
+      json({ apiUrl: API_URL, primaryAccounts }),
     );
 
     await expect(
       h.transport.invokeHook("email:deliver", { message, source: "test" }),
-    ).rejects.toThrow("missing Email submission access");
+    ).rejects.toThrow("needs both Email and Email submission access");
   });
 });
