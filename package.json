@@ -30,7 +30,7 @@
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
-    "emdash": ">=0.12.0"
+    "emdash": ">=1.0.1"
   },
   "devDependencies": {
     "@emdash-cms/plugin-cli": "0.13.5",
