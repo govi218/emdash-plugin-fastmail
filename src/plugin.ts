@@ -1,4 +1,8 @@
-import type { PluginContext, SandboxedPlugin } from "emdash/plugin";
+import type {
+  EmailDeliverEvent,
+  PluginContext,
+  SandboxedPlugin,
+} from "emdash/plugin";
 
 const SESSION_URL = "https://api.fastmail.com/jmap/session";
 const MAIL_CAPABILITY = "urn:ietf:params:jmap:mail";
@@ -8,15 +12,6 @@ const CAPABILITIES = [
   MAIL_CAPABILITY,
   SUBMISSION_CAPABILITY,
 ];
-
-interface Message {
-  to: string;
-  cc?: string[];
-  replyTo?: string;
-  subject: string;
-  text: string;
-  html?: string;
-}
 
 interface Session {
   apiUrl: string;
@@ -39,7 +34,7 @@ async function jmapFetch<T>(
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+      ...(init ? { "Content-Type": "application/json" } : {}),
     },
   });
   if (!response.ok) {
@@ -84,7 +79,7 @@ function firstError(
 }
 
 function buildEmail(
-  message: Message,
+  message: EmailDeliverEvent["message"],
   from: { email: string; name?: string },
   mailboxId: string,
 ): Record<string, unknown> {
@@ -202,7 +197,7 @@ const plugin: SandboxedPlugin = {
         if (submissionError)
           fail(`Could not send the message: ${submissionError}`);
 
-        ctx.log.info("email delivered via Fastmail", {
+        ctx.log.debug("email delivered via Fastmail", {
           to: message.to,
           subject: message.subject,
         });
