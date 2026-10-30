@@ -149,6 +149,37 @@ describe("email:deliver", () => {
 		).rejects.toThrow("forbiddenFrom");
 	});
 
+	it("includes JMAP problem details in an HTTP error", async () => {
+		const h = await setup();
+		await h.http.respond(SESSION_URL, json(session));
+		await h.http.respond(
+			API_URL,
+			new Response(
+				JSON.stringify({
+					type: "urn:ietf:params:jmap:error:unknownCapability",
+					status: 400,
+					detail: "Unknown capability",
+				}),
+				{ status: 400 },
+			),
+		);
+
+		await expect(
+			h.transport.invokeHook("email:deliver", { message, source: "test" }),
+		).rejects.toThrow(
+			`${API_URL} returned HTTP 400: urn:ietf:params:jmap:error:unknownCapability Unknown capability`,
+		);
+	});
+
+	it("reports only the status when an HTTP error body is not JSON", async () => {
+		const h = await setup();
+		await h.http.respond(SESSION_URL, new Response("<html>nope</html>", { status: 503 }));
+
+		await expect(
+			h.transport.invokeHook("email:deliver", { message, source: "test" }),
+		).rejects.toThrow(new RegExp(`${SESSION_URL} returned HTTP 503$`));
+	});
+
 	it("explains a token without submission access", async () => {
 		const h = await setup();
 		await h.http.respond(SESSION_URL, json({ apiUrl: API_URL, primaryAccounts: {} }));

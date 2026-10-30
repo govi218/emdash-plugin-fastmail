@@ -37,7 +37,14 @@ async function jmapFetch<T>(
 		...init,
 		headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
 	});
-	if (!response.ok) fail(`${url} returned HTTP ${response.status}`);
+	if (!response.ok) {
+		const problem = (await response.json().catch(() => null)) as {
+			type?: string;
+			detail?: string;
+		} | null;
+		const details = [problem?.type, problem?.detail].filter(Boolean).join(" ");
+		fail(`${url} returned HTTP ${response.status}${details && `: ${details}`}`);
+	}
 	return (await response.json()) as T;
 }
 
