@@ -1,0 +1,144 @@
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+	createPluginRuntimeTestHost,
+	type PluginRuntimeTestHost,
+} from "@emdash-cms/plugin-test";
+
+const SESSION_URL = "https://api.fastmail.com/jmap/session";
+const API_URL = "https://api.fastmail.com/jmap/api/";
+const message = { to: "a@example.org", subject: "Hi", text: "plain", html: "<b>rich</b>" };
+
+let host: PluginRuntimeTestHost | undefined;
+
+afterEach(async () => {
+	await host?.dispose();
+	host = undefined;
+});
+
+const json = (body: unknown) => new Response(JSON.stringify(body));
+
+const session = {
+	apiUrl: API_URL,
+	primaryAccounts: { "urn:ietf:params:jmap:submission": "A1" },
+};
+
+const lookup = (identities = [{ id: "I1", email: "team@example.com" }]) => ({
+	methodResponses: [
+		["Identity/get", { list: identities }, "identities"],
+		[
+			"Mailbox/get",
+			{
+				list: [
+					{ id: "D", role: "drafts" },
+					{ id: "S", role: "sent" },
+				],
+			},
+			"mailboxes",
+		],
+	],
+});
+
+const sent = {
+	methodResponses: [
+		["Email/set", { created: { draft: { id: "E1" } } }, "email"],
+		["EmailSubmission/set", { created: { send: { id: "Sub1" } } }, "submission"],
+		["Email/set", { updated: { E1: null } }, "submission"],
+	],
+};
+
+async function setup(settings: Record<string, unknown> = {}) {
+	host = await createPluginRuntimeTestHost();
+	await host.fixtures.plugin.setting("apiToken", "tok");
+	await host.fixtures.plugin.setting("fromEmail", "team@example.com");
+	for (const [key, value] of Object.entries(settings)) {
+		await host.fixtures.plugin.setting(key, value);
+	}
+	return host;
+}
+
+const body = (bytes: Uint8Array) => JSON.parse(new TextDecoder().decode(bytes));
+
+describe("email:deliver", () => {
+	it("creates the message and submits it in one request", async () => {
+		const h = await setup({ fromName: "Team" });
+		await h.http.respond(SESSION_URL, json(session));
+		await h.http.respond(API_URL, json(lookup()));
+		await h.http.respond(API_URL, json(sent));
+
+		await h.transport.invokeHook("email:deliver", { message, source: "test" });
+
+		const requests = h.http.requests();
+		expect(requests.map((request) => request.url)).toEqual([SESSION_URL, API_URL, API_URL]);
+		expect(requests[0]!.headers.authorization ?? requests[0]!.headers.Authorization).toBe(
+			"Bearer tok",
+		);
+
+		const [create, submit] = body(requests[2]!.body).methodCalls;
+		const draft = create[1].create.draft;
+		expect(draft.mailboxIds).toEqual({ D: true });
+		expect(draft.from).toEqual([{ email: "team@example.com", name: "Team" }]);
+		expect(draft.to).toEqual([{ email: "a@example.org" }]);
+		expect(draft.bodyValues).toEqual({ text: { value: "plain" }, html: { value: "<b>rich</b>" } });
+		expect(submit[1].create.send).toEqual({ emailId: "#draft", identityId: "I1" });
+		expect(submit[1].onSuccessUpdateEmail["#send"]).toEqual({
+			"mailboxIds/D": null,
+			"mailboxIds/S": true,
+			"keywords/$draft": null,
+		});
+	});
+
+	it("accepts a wildcard identity", async () => {
+		const h = await setup();
+		await h.http.respond(SESSION_URL, json(session));
+		await h.http.respond(API_URL, json(lookup([{ id: "W", email: "*@example.com" }])));
+		await h.http.respond(API_URL, json(sent));
+
+		await h.transport.invokeHook("email:deliver", { message, source: "test" });
+
+		const [, submit] = body(h.http.requests()[2]!.body).methodCalls;
+		expect(submit[1].create.send.identityId).toBe("W");
+	});
+
+	it("rejects a From address that is not an identity", async () => {
+		const h = await setup({ fromEmail: "other@elsewhere.com" });
+		await h.http.respond(SESSION_URL, json(session));
+		await h.http.respond(API_URL, json(lookup()));
+
+		await expect(
+			h.transport.invokeHook("email:deliver", { message, source: "test" }),
+		).rejects.toThrow("not a sending identity");
+	});
+
+	it("reports a rejected submission", async () => {
+		const h = await setup();
+		await h.http.respond(SESSION_URL, json(session));
+		await h.http.respond(API_URL, json(lookup()));
+		await h.http.respond(
+			API_URL,
+			json({
+				methodResponses: [
+					["Email/set", { created: { draft: { id: "E1" } } }, "email"],
+					[
+						"EmailSubmission/set",
+						{ notCreated: { send: { type: "forbiddenFrom" } } },
+						"submission",
+					],
+				],
+			}),
+		);
+
+		await expect(
+			h.transport.invokeHook("email:deliver", { message, source: "test" }),
+		).rejects.toThrow("forbiddenFrom");
+	});
+
+	it("explains a token without submission access", async () => {
+		const h = await setup();
+		await h.http.respond(SESSION_URL, json({ apiUrl: API_URL, primaryAccounts: {} }));
+
+		await expect(
+			h.transport.invokeHook("email:deliver", { message, source: "test" }),
+		).rejects.toThrow("missing Email submission access");
+	});
+});
