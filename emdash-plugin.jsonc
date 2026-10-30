@@ -1,42 +1,42 @@
 {
-	"$schema": "./node_modules/@emdash-cms/plugin-cli/schemas/emdash-plugin.schema.json",
+  "$schema": "./node_modules/@emdash-cms/plugin-cli/schemas/emdash-plugin.schema.json",
 
-	"slug": "fastmail",
-	"publisher": "did:plc:tztzxg26o2rdzyceoejkupnw",
+  "slug": "fastmail",
+  "publisher": "did:plc:tztzxg26o2rdzyceoejkupnw",
 
-	"license": "MIT",
-	"author": { "name": "Govind Mohan", "url": "https://github.com/govi218" },
-	"security": { "email": "info@govindmohan.com" },
-	"name": "Fastmail",
-	"description": "Send EmDash email through Fastmail's JMAP API.",
-	"repo": "https://github.com/govi218/emdash-plugin-fastmail",
+  "license": "MIT",
+  "author": { "name": "Govind Mohan", "url": "https://github.com/govi218" },
+  "security": { "email": "info@govindmohan.com" },
+  "name": "Fastmail",
+  "description": "Send EmDash email through Fastmail's JMAP API.",
+  "repo": "https://github.com/govi218/emdash-plugin-fastmail",
 
-	// Trust contract — what runtime APIs the plugin asks for.
-	// Empty arrays mean no extra privileges beyond logging,
-	// KV, and route/hook registration. Changing these between
-	// releases requires a version bump because installed
-	// users have consented to the old contract.
-	"capabilities": ["hooks.email-transport:register", "network:request"],
-	"allowedHosts": ["api.fastmail.com", "*.api.fastmail.com"],
-	"storage": {},
+  // Trust contract — what runtime APIs the plugin asks for.
+  // Empty arrays mean no extra privileges beyond logging,
+  // KV, and route/hook registration. Changing these between
+  // releases requires a version bump because installed
+  // users have consented to the old contract.
+  "capabilities": ["hooks.email-transport:register", "network:request"],
+  "allowedHosts": ["api.fastmail.com", "*.api.fastmail.com"],
+  "storage": {},
 
-	"admin": {
-		"settingsSchema": {
-			"apiToken": {
-				"type": "secret",
-				"label": "API token",
-				"description": "Fastmail API token with Email and Email submission access"
-			},
-			"fromEmail": {
-				"type": "email",
-				"label": "From address",
-				"description": "Must be a sending identity on the Fastmail account"
-			},
-			"fromName": {
-				"type": "string",
-				"label": "From name",
-				"default": ""
-			}
-		}
-	}
+  "admin": {
+    "settingsSchema": {
+      "apiToken": {
+        "type": "secret",
+        "label": "API token",
+        "description": "Fastmail API token with Email and Email submission access",
+      },
+      "fromEmail": {
+        "type": "email",
+        "label": "From address",
+        "description": "Must be a sending identity on the Fastmail account",
+      },
+      "fromName": {
+        "type": "string",
+        "label": "From name",
+        "default": "",
+      },
+    },
+  },
 }
