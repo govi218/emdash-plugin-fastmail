@@ -62,11 +62,14 @@ async function call(
   });
   const results = new Map<string, any>();
   for (const [name, args, callId] of methodResponses) {
-    if (name === "error")
+    if (name === "error") {
       fail(`${callId} failed: ${args.type} ${args.description ?? ""}`);
+    }
     // EmailSubmission's onSuccessUpdateEmail adds an implicit Email/set
     // response under the same call id; keep the submission result.
-    if (!results.has(callId)) results.set(callId, args);
+    if (!results.has(callId)) {
+      results.set(callId, args);
+    }
   }
   return results;
 }
@@ -79,7 +82,9 @@ function buildEmail(
   const bodyValues: Record<string, { value: string }> = {
     text: { value: message.text },
   };
-  if (message.html) bodyValues.html = { value: message.html };
+  if (message.html) {
+    bodyValues.html = { value: message.html };
+  }
   return {
     mailboxIds: { [mailboxId]: true },
     keywords: { $draft: true, $seen: true },
@@ -116,16 +121,18 @@ const plugin: SandboxedPlugin = {
         const token = await ctx.settings.get<string>("apiToken");
         const fromEmail = await ctx.settings.get<string>("fromEmail");
         const fromName = await ctx.settings.get<string>("fromName");
-        if (!token || !fromEmail)
+        if (!token || !fromEmail) {
           fail("API token and From address must be set in plugin settings");
+        }
 
         const session = await jmapFetch<Session>(ctx, token, SESSION_URL);
         const accountId = session.primaryAccounts[SUBMISSION_CAPABILITY];
         if (
           !accountId ||
           session.primaryAccounts[MAIL_CAPABILITY] !== accountId
-        )
+        ) {
           fail("API token needs both Email and Email submission access");
+        }
 
         const lookup = await call(ctx, token, session, [
           ["Identity/get", { accountId, ids: null }, "identities"],
@@ -140,17 +147,19 @@ const plugin: SandboxedPlugin = {
           .list.find((item: { email: string }) =>
             matchesIdentity(item.email, fromEmail),
           );
-        if (!identity)
+        if (!identity) {
           fail(
             `${fromEmail} is not a sending identity on this Fastmail account`,
           );
+        }
 
         const mailboxes: { id: string; role: string | null }[] =
           lookup.get("mailboxes").list;
         const drafts = mailboxes.find((mailbox) => mailbox.role === "drafts");
         const sent = mailboxes.find((mailbox) => mailbox.role === "sent");
-        if (!drafts || !sent)
+        if (!drafts || !sent) {
           fail("Could not find the Drafts and Sent mailboxes");
+        }
 
         const from = {
           email: fromEmail,
@@ -183,13 +192,15 @@ const plugin: SandboxedPlugin = {
         ]);
 
         const emailError = results.get("email")?.notCreated?.draft;
-        if (emailError)
+        if (emailError) {
           fail(`Could not create the message: ${JSON.stringify(emailError)}`);
+        }
         const submissionError = results.get("submission")?.notCreated?.send;
-        if (submissionError)
+        if (submissionError) {
           fail(
             `Could not send the message: ${JSON.stringify(submissionError)}`,
           );
+        }
 
         ctx.log.debug("email delivered via Fastmail", {
           to: message.to,
