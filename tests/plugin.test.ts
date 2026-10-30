@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createPluginRuntimeTestHost,
@@ -19,6 +19,7 @@ let host: PluginRuntimeTestHost | undefined;
 afterEach(async () => {
   await host?.dispose();
   host = undefined;
+  vi.unstubAllEnvs();
 });
 
 const json = (body: unknown) => new Response(JSON.stringify(body));
@@ -127,6 +128,31 @@ describe("email:deliver", () => {
       regionalApiUrl,
       regionalApiUrl,
     ]);
+  });
+
+  it("stores the API token encrypted and sends it decrypted", async () => {
+    vi.stubEnv("EMDASH_ENCRYPTION_KEY", `emdash_enc_v1_${"A".repeat(43)}`);
+    const h = (host = await createPluginRuntimeTestHost());
+    const update = await h.actions.plugin.updateSettings({
+      apiToken: "secret-token",
+      fromEmail: "team@example.com",
+    });
+    expect(update.success).toBe(true);
+
+    const raw = await h.inspect.settings.raw("apiToken");
+    expect(raw).toMatchObject({ $emdash: "plugin-setting" });
+    expect(JSON.stringify(raw)).not.toContain("secret-token");
+
+    await h.http.respond(SESSION_URL, json(session));
+    await h.http.respond(API_URL, json(lookup()));
+    await h.http.respond(API_URL, json(sent));
+
+    await h.transport.invokeHook("email:deliver", { message, source: "test" });
+
+    const [request] = h.http.requests();
+    expect(
+      request!.headers.authorization ?? request!.headers.Authorization,
+    ).toBe("Bearer secret-token");
   });
 
   it("accepts a wildcard identity", async () => {
