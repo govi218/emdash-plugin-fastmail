@@ -1,6 +1,6 @@
 {
   "name": "emdash-plugin-fastmail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "packageManager": "pnpm@11.3.0",
   "main": "dist/index.mjs",
