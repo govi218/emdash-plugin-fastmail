@@ -17,7 +17,7 @@
 	// releases requires a version bump because installed
 	// users have consented to the old contract.
 	"capabilities": ["hooks.email-transport:register", "network:request"],
-	"allowedHosts": ["api.fastmail.com"],
+	"allowedHosts": ["api.fastmail.com", "*.api.fastmail.com"],
 	"storage": {},
 
 	"admin": {

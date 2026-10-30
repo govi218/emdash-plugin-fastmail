@@ -88,6 +88,22 @@ describe("email:deliver", () => {
 		});
 	});
 
+	it("calls the regional API host named by the session", async () => {
+		const regionalApiUrl = "https://phl.api.fastmail.com/jmap/api/";
+		const h = await setup();
+		await h.http.respond(SESSION_URL, json({ ...session, apiUrl: regionalApiUrl }));
+		await h.http.respond(regionalApiUrl, json(lookup()));
+		await h.http.respond(regionalApiUrl, json(sent));
+
+		await h.transport.invokeHook("email:deliver", { message, source: "test" });
+
+		expect(h.http.requests().map((request) => request.url)).toEqual([
+			SESSION_URL,
+			regionalApiUrl,
+			regionalApiUrl,
+		]);
+	});
+
 	it("accepts a wildcard identity", async () => {
 		const h = await setup();
 		await h.http.respond(SESSION_URL, json(session));
