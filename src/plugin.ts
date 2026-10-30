@@ -71,13 +71,6 @@ async function call(
   return results;
 }
 
-function firstError(
-  result: Record<string, unknown> | null | undefined,
-): string | undefined {
-  const error = result && Object.values(result)[0];
-  return error ? JSON.stringify(error) : undefined;
-}
-
 function buildEmail(
   message: EmailDeliverEvent["message"],
   from: { email: string; name?: string },
@@ -189,13 +182,14 @@ const plugin: SandboxedPlugin = {
           ],
         ]);
 
-        const emailError = firstError(results.get("email")?.notCreated);
-        if (emailError) fail(`Could not create the message: ${emailError}`);
-        const submissionError = firstError(
-          results.get("submission")?.notCreated,
-        );
+        const emailError = results.get("email")?.notCreated?.draft;
+        if (emailError)
+          fail(`Could not create the message: ${JSON.stringify(emailError)}`);
+        const submissionError = results.get("submission")?.notCreated?.send;
         if (submissionError)
-          fail(`Could not send the message: ${submissionError}`);
+          fail(
+            `Could not send the message: ${JSON.stringify(submissionError)}`,
+          );
 
         ctx.log.debug("email delivered via Fastmail", {
           to: message.to,

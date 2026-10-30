@@ -154,6 +154,33 @@ describe("email:deliver", () => {
     ).rejects.toThrow("not a sending identity");
   });
 
+  it("reports a message that could not be created", async () => {
+    const h = await setup();
+    await h.http.respond(SESSION_URL, json(session));
+    await h.http.respond(API_URL, json(lookup()));
+    await h.http.respond(
+      API_URL,
+      json({
+        methodResponses: [
+          [
+            "Email/set",
+            { notCreated: { draft: { type: "overQuota" } } },
+            "email",
+          ],
+          [
+            "EmailSubmission/set",
+            { notCreated: { send: { type: "invalidProperties" } } },
+            "submission",
+          ],
+        ],
+      }),
+    );
+
+    await expect(
+      h.transport.invokeHook("email:deliver", { message, source: "test" }),
+    ).rejects.toThrow("Could not create the message");
+  });
+
   it("reports a rejected submission", async () => {
     const h = await setup();
     await h.http.respond(SESSION_URL, json(session));
