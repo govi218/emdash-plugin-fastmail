@@ -22,11 +22,28 @@ uses HTTPS only, so it runs on Cloudflare Workers, where SMTP transports may not
 4. In the plugin's settings, enter the API token and From address. The address
    must be a sending identity on the Fastmail account. Wildcard identities such
    as `*@example.com` work.
-5. Under **Settings > Email**, select Fastmail and use **Send test email**.
+5. Under **Settings > Email**, use **Send test email**. Fastmail is selected
+   automatically when it's the only email provider. If the send fails, the
+   reason is in the server logs.
+
+The site needs a sandbox runner, such as `sandbox()` from
+`@emdash-cms/cloudflare`, to load the plugin.
+
+In `astro dev`, EmDash also registers a console email provider, so nothing is
+selected automatically. Select Fastmail through the admin API:
+
+```sh
+curl -X PUT http://localhost:4321/_emdash/api/admin/hooks/exclusive/email:deliver \
+  -H "Cookie: <your admin session>" \
+  -H "X-EmDash-Request: 1" \
+  -H "Content-Type: application/json" \
+  -d '{"pluginId":"fastmail"}'
+```
 
 ## Good to know
 
-- Sent messages are saved to the account's Sent folder. If a send fails, a draft
+- Sent messages are saved to the account's Sent folder, including any magic or
+  recovery links they contain. If a send fails, a draft with the same content
   can be left in Drafts.
 - Fastmail is not a bulk sending service and applies per-user sending limits.
   Use this for transactional mail, not newsletters.
